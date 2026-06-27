@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>云子五子棋 - 棋院大厅</title>
+  <link rel="stylesheet" href="/css/mobile.css">
+
+</head>
+<body class="lobby-page">
+
+  <nav class="main-nav">
+    <div class="nav-brand">
+      <div class="mini-stone"></div>
+      <span class="brand-text">云子五子棋</span>
+    </div>
+    <div class="nav-center"></div>
+    <div class="nav-user">
+      <div class="user-info" id="userInfo">
+        <span class="user-rating">★ <span id="userRating">1000</span></span>
+        <span class="user-name" id="userName">加载中...</span>
+        <div class="user-avatar" id="userAvatar"></div>
+      </div>
+      <button class="logout-btn" id="logoutBtn">退出</button>
+    </div>
+  </nav>
+
+  <main class="lobby-main">
+    <section class="lobby-left">
+      <!-- 欢迎横幅 -->
+      <div class="welcome-banner">
+        <div class="banner-content">
+          <h2 class="banner-greeting" id="greeting">欢迎回来</h2>
+          <p class="banner-proverb" id="dailyProverb">棋逢对手，将遇良才</p>
+        </div>
+        <div class="banner-decoration">
+          <div class="banner-stone black"></div>
+          <div class="banner-stone white"></div>
+        </div>
+      </div>
+
+      <!-- 个人战绩卡 — 移到欢迎横幅下方 -->
+      <div class="panel profile-card">
+        <div class="profile-header">
+          <div class="profile-avatar" id="profileAvatar"></div>
+          <div class="profile-info">
+            <span class="profile-name" id="profileName">--</span>
+            <span class="profile-rating">★ <span id="profileRating">1000</span></span>
+          </div>
+        </div>
+        <div class="profile-stats">
+          <div class="stat-item">
+            <span class="stat-value win" id="statWins">0</span>
+            <span class="stat-label">胜</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value loss" id="statLosses">0</span>
+            <span class="stat-label">负</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value draw" id="statDraws">0</span>
+            <span class="stat-label">和</span>
+          </div>
+        </div>
+        <div class="profile-winrate">
+          <div class="winrate-bar">
+            <div class="winrate-fill" id="winrateFill" style="width: 0%"></div>
+          </div>
+          <span class="winrate-text">胜率 <span id="winrateText">0%</span></span>
+        </div>
+      </div>
+
+      <!-- 好友消息入口 — 放在个人信息下方 -->
+      <button class="panel lobby-friends-card" id="friendsBtn">
+        <span class="lobby-friends-icon">💬</span>
+        <div class="lobby-friends-info">
+          <span class="lobby-friends-title">好友消息</span>
+          <span class="lobby-friends-desc">查找棋友，查看好友列表并私聊</span>
+        </div>
+        <span class="lobby-friends-arrow">→</span>
+      </button>
+
+      <!-- 对弈入口双栏 — 移动端上下堆叠 -->
+      <div class="battle-entry-row">
+        <!-- 人机对弈 -->
+        <div class="panel action-panel ai-battle-panel">
+          <h3 class="panel-title">人机对弈</h3>
+          <p class="ai-panel-desc">挑战AI，磨炼棋艺，随时开局</p>
+          <div class="ai-difficulty-grid">
+            <button class="ai-difficulty-btn beginner" id="aiBeginnerBtn">
+              <span class="diff-icon">🟢</span>
+              <span class="diff-name">初级</span>
+              <span class="diff-desc">适合入门</span>
+            </button>
+            <button class="ai-difficulty-btn intermediate" id="aiIntermediateBtn">
+              <span class="diff-icon">🟡</span>
+              <span class="diff-name">中级</span>
+              <span class="diff-desc">需要思考</span>
+            </button>
+            <button class="ai-difficulty-btn advanced" id="aiAdvancedBtn">
+              <span class="diff-icon">🔴</span>
+              <span class="diff-name">高级</span>
+              <span class="diff-desc">极具挑战</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 在线对弈 -->
+        <div class="panel action-panel online-battle-panel">
+          <h3 class="panel-title">在线对弈</h3>
+          <div class="action-grid">
+            <button class="action-card primary" id="quickMatchBtn">
+              <span class="action-icon">⚔️</span>
+              <div class="action-info">
+                <span class="action-name">快速匹配</span>
+                <span class="action-desc">自动匹配对手</span>
+              </div>
+            </button>
+            <button class="action-card" id="createRoomBtn">
+              <span class="action-icon">🏠</span>
+              <div class="action-info">
+                <span class="action-name">创建房间</span>
+                <span class="action-desc">邀请好友对局</span>
+              </div>
+            </button>
+          </div>
+
+          <div class="join-section">
+            <div class="join-divider">
+              <span>或加入已有房间</span>
+            </div>
+            <div class="join-input-group">
+              <input type="text" id="roomIdInput" placeholder="输入8位房间号" maxlength="8" autocomplete="off">
+              <button id="joinRoomBtn">进入</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 棋理 + 运势 -->
+      <div class="tips-fortune-row">
+        <div class="panel tips-panel">
+          <h3 class="panel-title">棋理拾珠</h3>
+          <div class="tips-carousel" id="tipsCarousel">
+            <div class="tip-slide active">
+              <p class="tip-text">"金角银边草肚皮" —— 开局占角最为有利</p>
+            </div>
+            <div class="tip-slide">
+              <p class="tip-text">"棋长一尺，无眼自活" —— 棋形舒展则不易被攻</p>
+            </div>
+            <div class="tip-slide">
+              <p class="tip-text">"入界宜缓" —— 打入对方阵地要循序渐进</p>
+            </div>
+            <div class="tip-slide">
+              <p class="tip-text">"攻彼顾我" —— 攻击对方时要先稳固自身</p>
+            </div>
+            <div class="tip-slide">
+              <p class="tip-text">"舍小就大" —— 关键时刻要敢于弃子取势</p>
+            </div>
+          </div>
+          <div class="tip-dots" id="tipDots"></div>
+        </div>
+
+        <div class="panel fortune-panel">
+          <h3 class="panel-title">今日棋运</h3>
+          <div class="fortune-content" id="fortuneContent">
+            <div class="fortune-stars" id="fortuneStars"></div>
+            <p class="fortune-text" id="fortuneText">点击抽签查看今日运势</p>
+            <button class="fortune-btn" id="fortuneBtn">🎋 求签</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右侧信息 — 移动端堆叠到底部 -->
+    <aside class="lobby-right">
+      <!-- 排行榜 -->
+      <div class="panel leaderboard-panel">
+        <h3 class="panel-title">高手榜</h3>
+        <div class="leaderboard-list" id="leaderboardList">
+          <div class="loading-text">加载中...</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 匹配中模态框 -->
+  <div class="modal" id="matchingModal">
+    <div class="modal-content">
+      <div class="matching-animation">
+        <div class="go-stone floating"></div>
+        <div class="go-stone floating reverse"></div>
+      </div>
+      <h3>正在寻找对手</h3>
+      <p class="matching-text">请稍候，正在匹配实力相近的棋手...</p>
+      <div class="matching-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <button class="cancel-btn" id="cancelMatchBtn">取消匹配</button>
+    </div>
+  </div>
+
+  <!-- 创建房间成功 -->
+  <div class="modal" id="roomCreatedModal">
+    <div class="modal-content">
+      <div class="room-created-icon">🏠</div>
+      <h3>房间已创建</h3>
+      <p class="room-id-display">房间号：<span id="createdRoomId"></span></p>
+      <button class="secondary-btn" id="shareToFriendBtn" style="margin-bottom: 12px; width: 100%;">分享给好友 →</button>
+      <button class="primary-btn" id="enterRoomBtn" style="width: 100%;">进入房间</button>
+    </div>
+  </div>
+
+  <!-- 分享给好友弹窗 -->
+  <div class="modal" id="shareFriendModal">
+    <div class="modal-content" style="max-width: 360px; padding: 20px;">
+      <h3 style="margin-bottom: 14px;">分享给好友</h3>
+      <div class="share-friend-list" id="shareFriendList">
+        <div class="loading-text">加载中...</div>
+      </div>
+      <button class="secondary-btn" id="closeShareModalBtn" style="margin-top: 14px; width: 100%;">取消</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/lobby.js"></script>
+</body>
+</html>

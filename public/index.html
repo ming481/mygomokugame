@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云子五子棋 - 对局中</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body class="game-page">
+  <nav class="game-nav">
+    <div class="nav-brand">
+      <button class="back-btn" id="backBtn" title="返回大厅">◀</button>
+      <div class="mini-stone"></div>
+      <span class="brand-text">云子五子棋</span>
+    </div>
+    <div class="nav-center">
+      <div class="room-info" id="roomDisplay">
+        <span class="room-label">房间号:</span>
+        <span class="room-id" id="roomIdText">--------</span>
+      </div>
+      <span class="game-status" id="statusText">准备对局</span>
+      <span class="move-info">第 <span id="moveCount">0</span> 手</span>
+    </div>
+    <div class="nav-user">
+      <div class="user-info">
+        <span class="user-rating">★ <span id="userRating">1000</span></span>
+        <span class="user-name" id="userName">加载中...</span>
+        <div class="user-avatar" id="userAvatar"></div>
+      </div>
+      <button class="logout-btn" id="logoutBtn" title="退出登录">退出登录</button>
+    </div>
+  </nav>
+
+  <main class="game-layout">
+    <!-- 左侧：棋盘区 -->
+    <section class="board-section">
+      <div class="player-row">
+        <div class="player-card" id="blackPlayer">
+          <div class="turn-dot" id="blackTurn"></div>
+          <div class="player-stone black"></div>
+          <div class="player-meta">
+            <span class="player-name" id="blackName">--</span>
+            <span class="player-timer" id="blackTimer">10:00</span>
+          </div>
+          <span class="player-side">黑方</span>
+        </div>
+        <div class="player-card right" id="whitePlayer">
+          <div class="turn-dot" id="whiteTurn"></div>
+          <div class="player-stone white"></div>
+          <div class="player-meta">
+            <span class="player-name" id="whiteName">--</span>
+            <span class="player-timer" id="whiteTimer">10:00</span>
+          </div>
+          <span class="player-side">白方</span>
+        </div>
+      </div>
+
+      <!-- 棋盘 -->
+      <div class="board-wrapper">
+          <canvas id="gameBoard" width="600" height="600"></canvas>
+          <div class="last-move-marker" id="lastMoveMarker"></div>
+      </div>
+
+      <!-- 控制栏 -->
+      <div class="control-bar">
+        <button class="ctrl-btn" id="drawBtn" title="请求和棋">
+          <span class="ctrl-icon">⚖</span>
+          <span>和棋</span>
+        </button>
+        <button class="ctrl-btn danger" id="resignBtn" title="认输">
+          <span class="ctrl-icon">⚔</span>
+          <span>认输</span>
+        </button>
+        <button class="ctrl-btn" id="leaveBtn" title="离开房间">
+          <span class="ctrl-icon">✕</span>
+          <span>离开</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 右侧：聊天区 -->
+    <aside class="chat-section">
+      <div class="chat-header">
+        <span class="chat-title">棋室交流</span>
+        <span class="chat-subtitle">观棋不语真君子</span>
+      </div>
+      <div class="chat-welcome">
+        <span class="welcome-icon">☯</span>
+        <span class="welcome-text">欢迎进入棋室</span>
+        <span class="welcome-sub">落子无悔大丈夫</span>
+      </div>
+      <div class="chat-body" id="chatMessages">
+      </div>
+      <div class="chat-footer">
+        <input type="text" id="chatInput" placeholder="输入消息按回车发送..." maxlength="100" autocomplete="off">
+        <button id="sendChatBtn">发送</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 匹配中 -->
+  <div class="modal" id="matchingModal">
+    <div class="modal-content">
+      <div class="matching-animation">
+        <div class="go-stone floating"></div>
+        <div class="go-stone floating reverse"></div>
+      </div>
+      <h3>正在寻找对手</h3>
+      <p class="matching-text">请稍候，正在匹配实力相近的棋手...</p>
+      <button class="cancel-btn" id="cancelMatchBtn">取消匹配</button>
+    </div>
+  </div>
+
+  <!-- 游戏结束 -->
+  <div class="modal" id="gameEndModal">
+    <div class="modal-content result-content">
+      <div class="result-icon" id="resultIcon"></div>
+      <h2 id="resultTitle">对局结束</h2>
+      <p id="resultReason"></p>
+      <div class="result-actions">
+        <button class="primary-btn" id="playAgainBtn">再来一局</button>
+        <button class="secondary-btn" id="backToLobbyBtn">返回大厅</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认框 -->
+  <div class="modal" id="confirmModal">
+    <div class="modal-content">
+      <h3 id="confirmTitle">确认</h3>
+      <p id="confirmMessage">确定要进行此操作吗？</p>
+      <div class="confirm-actions">
+        <button class="secondary-btn" id="confirmCancel">取消</button>
+        <button class="primary-btn" id="confirmOk">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/main.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+
+</html>

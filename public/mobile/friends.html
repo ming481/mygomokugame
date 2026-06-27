@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content">
+  <title>云子五子棋 - 好友消息</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="stylesheet" href="/css/mobile.css?v=20260621-chat-layout-6">
+
+</head>
+<body class="friends-page">
+  <nav class="main-nav">
+    <div class="nav-brand">
+      <button class="back-btn" id="backBtn" title="返回大厅">‹</button>
+      <div class="mini-stone"></div>
+      <span class="brand-text">好友消息</span>
+    </div>
+    <div class="nav-center"></div>
+    <div class="nav-user">
+      <div class="user-info" id="userInfo">
+        <span class="user-rating">★ <span id="userRating">1000</span></span>
+        <span class="user-name" id="userName">加载中...</span>
+        <div class="user-avatar" id="userAvatar"></div>
+      </div>
+      <button class="logout-btn" id="logoutBtn">退出</button>
+    </div>
+  </nav>
+
+  <!-- Tab切换：好友列表 | 私聊 -->
+  <div class="friends-tabs">
+    <button class="friends-tab active" data-tab="friends">好友列表</button>
+    <button class="friends-tab" data-tab="chat">私聊</button>
+  </div>
+
+  <!-- 好友列表Tab -->
+  <div class="friends-tab-panel active" id="tabFriends">
+    <div class="friends-layout">
+      <aside class="friends-sidebar">
+        <section class="friend-search">
+          <h2>查找棋友</h2>
+          <div class="friend-search-row">
+            <input type="text" id="searchInput" placeholder="输入唯一用户名" autocomplete="off">
+            <button id="searchBtn">搜索</button>
+          </div>
+          <div class="friend-search-result" id="searchResult"></div>
+        </section>
+
+        <section class="friend-requests-panel">
+          <div class="friend-list-head">
+            <h2>好友申请</h2>
+            <button id="refreshRequestsBtn" title="刷新">刷新</button>
+          </div>
+          <div class="friend-request-list" id="friendRequestList">
+            <div class="empty-state">申请加载中...</div>
+          </div>
+        </section>
+
+        <section class="friend-list-panel">
+          <div class="friend-list-head">
+            <h2>好友列表</h2>
+            <button id="refreshFriendsBtn" title="刷新">刷新</button>
+          </div>
+          <div class="friend-list" id="friendList">
+            <div class="empty-state">好友加载中...</div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <!-- 私聊Tab -->
+  <div class="friends-tab-panel" id="tabChat">
+    <div class="friends-layout">
+      <section class="private-chat">
+        <div class="private-chat-empty" id="chatEmpty">
+          <div class="empty-title">您还未选择好友</div>
+          <div class="empty-subtitle">请选择一位好友开始聊天</div>
+        </div>
+
+        <div class="private-chat-active" id="chatActive">
+          <header class="private-chat-header">
+            <div class="friend-avatar" id="chatAvatar"></div>
+            <div class="chat-friend-meta">
+              <strong id="chatName">--</strong>
+              <span id="chatStatus">离线</span>
+            </div>
+          </header>
+
+          <div class="private-message-list" id="messageList"></div>
+
+          <form class="private-chat-form" id="chatForm">
+            <input type="text" id="messageInput" placeholder="输入消息..." maxlength="1000" autocomplete="off">
+            <button type="submit">发送</button>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/friends.js?v=20260621-chat-layout-6"></script>
+  <script>
+    // 移动端Tab切换 + 窗口高度锁定
+    (function() {
+      var body = document.body;
+      var tabs = document.querySelectorAll('.friends-tab');
+      var panels = document.querySelectorAll('.friends-tab-panel');
+
+      function updateChatViewport() {
+        var vv = window.visualViewport;
+        var layoutHeight = document.documentElement.clientHeight || window.innerHeight;
+        var keyboardHeight = vv ? Math.max(0, layoutHeight - vv.height - vv.offsetTop) : 0;
+        var tabs = document.querySelector('.friends-tabs');
+        var header = document.querySelector('.private-chat-header');
+        var form = document.querySelector('.private-chat-form');
+        var chatTop = tabs ? tabs.getBoundingClientRect().bottom : 0;
+
+        body.style.setProperty('--chat-top', chatTop + 'px');
+        body.style.setProperty('--keyboard-height', keyboardHeight + 'px');
+        if (header) body.style.setProperty('--chat-header-height', header.offsetHeight + 'px');
+        if (form) body.style.setProperty('--chat-form-height', form.offsetHeight + 'px');
+        window.dispatchEvent(new Event('friends:viewportchange'));
+      }
+      updateChatViewport();
+      window.addEventListener('resize', updateChatViewport);
+      window.addEventListener('orientationchange', updateChatViewport);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateChatViewport);
+        window.visualViewport.addEventListener('scroll', updateChatViewport);
+      }
+
+      tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          var target = tab.dataset.tab;
+          tabs.forEach(function(t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          panels.forEach(function(p) { p.classList.remove('active'); });
+          document.getElementById(target === 'friends' ? 'tabFriends' : 'tabChat').classList.add('active');
+          requestAnimationFrame(updateChatViewport);
+        });
+      });
+
+      // 监听好友列表点击，自动切换到私聊Tab
+      var friendList = document.getElementById('friendList');
+      if (friendList) {
+        friendList.addEventListener('click', function(e) {
+          var row = e.target.closest('.friend-row');
+          if (row) {
+            tabs.forEach(function(t) { t.classList.remove('active'); });
+            document.querySelector('.friends-tab[data-tab="chat"]').classList.add('active');
+            panels.forEach(function(p) { p.classList.remove('active'); });
+            document.getElementById('tabChat').classList.add('active');
+            requestAnimationFrame(updateChatViewport);
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

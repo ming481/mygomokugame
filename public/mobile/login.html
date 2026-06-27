@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>云子五子棋 - 登录</title>
+  <link rel="stylesheet" href="/css/mobile.css">
+</head>
+<body class="auth-page">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="logo-section">
+        <div class="go-stone-logo">
+          <div class="stone black"></div>
+          <div class="stone white"></div>
+        </div>
+        <h1 class="site-title">云子五子棋</h1>
+        <p class="site-subtitle">运筹帷幄 · 决胜千里</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="tab-btn active" data-tab="login">登录</button>
+        <button class="tab-btn" data-tab="register">注册</button>
+        <div class="tab-indicator"></div>
+      </div>
+
+      <form id="loginForm" class="auth-form active">
+        <div class="input-group">
+          <label>用户名</label>
+          <input type="text" id="loginUsername" placeholder="请输入用户名" required autocomplete="username">
+        </div>
+        <div class="input-group">
+          <label>密码</label>
+          <input type="password" id="loginPassword" placeholder="请输入密码" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="submit-btn">
+          <span class="btn-text">进入棋局</span>
+          <span class="btn-shine"></span>
+        </button>
+        <p class="error-msg" id="loginError"></p>
+      </form>
+
+      <form id="registerForm" class="auth-form">
+        <div class="input-group">
+          <label>用户名</label>
+          <input type="text" id="regUsername" placeholder="2-16位字母数字" required minlength="2" maxlength="16" autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label>昵称</label>
+          <input type="text" id="regNickname" placeholder="显示名称（可选）" maxlength="20" autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label>密码</label>
+          <input type="password" id="regPassword" placeholder="至少6位密码" required minlength="6" autocomplete="new-password">
+        </div>
+        <button type="submit" class="submit-btn">
+          <span class="btn-text">开立棋谱</span>
+          <span class="btn-shine"></span>
+        </button>
+        <p class="error-msg" id="regError"></p>
+      </form>
+    </div>
+
+    <div class="auth-footer">
+      <p>落子无悔 · 观棋不语</p>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+</body>
+</html>
