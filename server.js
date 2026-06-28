@@ -1108,8 +1108,34 @@ async function handlePlayerDisconnect(roomId, username) {
   const player = room.players.find(p => p.username === username);
   if (!player) return;
 
-  // 非 playing 状态、或者房间已经是 disconnected（双方都已断开），走旧逻辑清理
+  // 非 playing 状态 → 旧逻辑清理
   if (room.status !== 'playing') {
+    // 如果房间已经是 disconnected 状态，检查另一个玩家是否也断线了 → 双断，平局清理
+    if (room.status === 'disconnected') {
+      const otherDisc = room.players.find(p => p.username !== username && p.disconnectedAt);
+      if (otherDisc) {
+        room.status = 'ended';
+        const black = room.players.find(p => p.color === 'black');
+        const white = room.players.find(p => p.color === 'white');
+        room.players.forEach(p => Database.updateStats(p.username, 'draw', 0).catch(console.error));
+        Database.saveGameRecord(roomId,
+          black ? black.username : '',
+          white ? white.username : '',
+          null, '双方断线', room.moves.length
+        ).catch(console.error);
+        await Database.deleteActiveGame(roomId);
+        io.to(roomId).emit('gameEnd', {
+          winner: null,
+          reason: '双方均断线，平局',
+          board: room.board
+        });
+        if (room.disconnectTimer) clearTimeout(room.disconnectTimer);
+        if (room.countdownInterval) clearInterval(room.countdownInterval);
+        rooms.delete(roomId);
+        return;
+      }
+    }
+    // 单纯的非 playing 状态（如 waiting），只移除玩家
     const playerIndex = room.players.findIndex(p => p.username === username);
     if (playerIndex !== -1) room.players.splice(playerIndex, 1);
     if (room.players.length === 0) rooms.delete(roomId);

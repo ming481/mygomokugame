@@ -529,7 +529,21 @@ async function checkActiveGame() {
     const modal = document.getElementById('reconnectModal');
     if (modal) modal.classList.add('active');
 
-    document.getElementById('reconnectJoinBtn').onclick = () => {
+    document.getElementById('reconnectJoinBtn').onclick = async () => {
+      // 先重新验证对局是否仍然存在
+      try {
+        const verifyRes = await fetch('/api/active-game', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyData.success || !verifyData.hasActiveGame) {
+          if (modal) modal.classList.remove('active');
+          showToast('对局已不存在');
+          return;
+        }
+      } catch (_) {
+        // 验证失败，仍然尝试进入
+      }
       if (modal) modal.classList.remove('active');
       window.location.href = `/game?room=${data.roomId}`;
     };

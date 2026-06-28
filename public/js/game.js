@@ -454,7 +454,7 @@ class GameRenderer {
 
   setInteractive(enabled) {
     this.canvas.style.pointerEvents = enabled ? 'auto' : 'none';
-    this.canvas.style.cursor = enabled ? 'crosshair' : 'not-allowed';
+    this.canvas.style.cursor = enabled ? '' : 'not-allowed';
   }
 }
 
