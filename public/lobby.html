@@ -232,6 +232,19 @@
     </div>
   </div>
 
+  <!-- 断线重连弹窗 -->
+  <div class="modal" id="reconnectModal">
+    <div class="modal-content" style="max-width: 400px; padding: 24px;">
+      <h3 style="margin-bottom: 16px;">♻️ 恢复对局</h3>
+      <p id="reconnectMessage" style="margin-bottom: 8px;">您有一场进行中的对局</p>
+      <p id="reconnectOpponentStatus" style="font-size: 14px; color: #888; margin-bottom: 20px;"></p>
+      <div style="display: flex; gap: 12px;">
+        <button class="primary-btn" id="reconnectJoinBtn" style="flex: 1;">回到对局</button>
+        <button class="secondary-btn" id="reconnectForfeitBtn" style="flex: 1;">放弃对局</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script src="/socket.io/socket.io.js"></script>

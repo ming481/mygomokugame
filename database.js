@@ -111,6 +111,26 @@ const Database = {
         ALTER TABLE users
         ADD COLUMN current_token VARCHAR(500) NULL
       `).catch(() => {});
+
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS active_games (
+          room_id VARCHAR(50) PRIMARY KEY,
+          player_black VARCHAR(50) NOT NULL,
+          player_white VARCHAR(50) NOT NULL,
+          board_state JSON NOT NULL,
+          moves JSON NOT NULL,
+          current_turn VARCHAR(10) NOT NULL,
+          black_time_left INT NOT NULL,
+          white_time_left INT NOT NULL,
+          game_started_at BIGINT NOT NULL,
+          turn_started_at BIGINT NOT NULL,
+          last_move_time BIGINT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_active_games_player_black (player_black),
+          INDEX idx_active_games_player_white (player_white)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
     } finally {
       conn.release();
     }
@@ -128,6 +148,77 @@ const Database = {
       'UPDATE users SET current_token = \'\' WHERE username = ?',
       [username]
     );
+  },
+
+  _rowToActiveGame(row) {
+    return {
+      room_id: row.room_id,
+      player_black: row.player_black,
+      player_white: row.player_white,
+      board_state: typeof row.board_state === 'string' ? JSON.parse(row.board_state) : row.board_state,
+      moves: typeof row.moves === 'string' ? JSON.parse(row.moves) : row.moves,
+      current_turn: row.current_turn,
+      black_time_left: row.black_time_left,
+      white_time_left: row.white_time_left,
+      game_started_at: row.game_started_at,
+      turn_started_at: row.turn_started_at,
+      last_move_time: row.last_move_time
+    };
+  },
+
+  async saveActiveGame(roomId, data) {
+    await pool.execute(
+      `INSERT INTO active_games
+       (room_id, player_black, player_white, board_state, moves, current_turn,
+        black_time_left, white_time_left, game_started_at, turn_started_at, last_move_time)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+       board_state = VALUES(board_state),
+       moves = VALUES(moves),
+       current_turn = VALUES(current_turn),
+       black_time_left = VALUES(black_time_left),
+       white_time_left = VALUES(white_time_left),
+       turn_started_at = VALUES(turn_started_at),
+       last_move_time = VALUES(last_move_time),
+       updated_at = CURRENT_TIMESTAMP`,
+      [
+        roomId,
+        data.player_black, data.player_white,
+        JSON.stringify(data.board_state),
+        JSON.stringify(data.moves),
+        data.current_turn,
+        data.black_time_left, data.white_time_left,
+        data.game_started_at, data.turn_started_at,
+        data.last_move_time || null
+      ]
+    );
+  },
+
+  async loadActiveGame(roomId) {
+    const [rows] = await pool.execute(
+      'SELECT * FROM active_games WHERE room_id = ?',
+      [roomId]
+    );
+    return rows[0] ? this._rowToActiveGame(rows[0]) : null;
+  },
+
+  async deleteActiveGame(roomId) {
+    await pool.execute('DELETE FROM active_games WHERE room_id = ?', [roomId]);
+  },
+
+  async clearActiveGames() {
+    const [result] = await pool.execute('DELETE FROM active_games');
+    if (result.affectedRows > 0) {
+      console.log(`清理了 ${result.affectedRows} 条残留的 active_games 记录`);
+    }
+  },
+
+  async loadActiveGameByUser(username) {
+    const [rows] = await pool.execute(
+      'SELECT * FROM active_games WHERE player_black = ? OR player_white = ? LIMIT 1',
+      [username, username]
+    );
+    return rows[0] ? this._rowToActiveGame(rows[0]) : null;
   },
 
   async getCurrentToken(username) {

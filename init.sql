@@ -66,6 +66,25 @@ CREATE TABLE IF NOT EXISTS private_messages (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 插入测试数据（可选）
--- INSERT INTO users (username, password, nickname) VALUES 
+-- INSERT INTO users (username, password, nickname) VALUES
 --   ('test1', '$2a$10$...', '测试用户1'),
 --   ('test2', '$2a$10$...', '测试用户2');
+
+-- active_games: 对局状态快照，用于掉线重连
+CREATE TABLE IF NOT EXISTS active_games (
+  room_id VARCHAR(50) PRIMARY KEY,
+  player_black VARCHAR(50) NOT NULL,
+  player_white VARCHAR(50) NOT NULL,
+  board_state JSON NOT NULL,
+  moves JSON NOT NULL,
+  current_turn VARCHAR(10) NOT NULL,
+  black_time_left INT NOT NULL,
+  white_time_left INT NOT NULL,
+  game_started_at BIGINT NOT NULL,
+  turn_started_at BIGINT NOT NULL,
+  last_move_time BIGINT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_active_games_player_black (player_black),
+  INDEX idx_active_games_player_white (player_white)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

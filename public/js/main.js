@@ -205,6 +205,43 @@ function connectSocket() {
     updateTimerDisplay(data.color, data.timeLeft);
   });
 
+  // 断线重连事件
+  socket.on('opponentDisconnected', (data) => {
+    stopTimer();
+    if (window.gameRenderer) {
+      window.gameRenderer.setInteractive(false);
+    }
+    const overlay = document.getElementById('disconnectOverlay');
+    const nicknameEl = document.getElementById('dcNickname');
+    const timerEl = document.getElementById('dcTimer');
+    const barEl = document.getElementById('dcProgressBar');
+    if (nicknameEl) nicknameEl.textContent = data.opponentNickname;
+    if (timerEl) timerEl.textContent = data.timeoutSec || 20;
+    if (barEl) barEl.style.width = '100%';
+    if (overlay) overlay.classList.remove('hidden');
+    updateGameControls(false);
+  });
+
+  socket.on('opponentDisconnectCountdown', (data) => {
+    const timerEl = document.getElementById('dcTimer');
+    const barEl = document.getElementById('dcProgressBar');
+    if (timerEl) timerEl.textContent = data.remainingSec;
+    if (barEl) {
+      barEl.style.width = ((data.remainingSec / 20) * 100) + '%';
+    }
+  });
+
+  socket.on('opponentReconnected', () => {
+    const overlay = document.getElementById('disconnectOverlay');
+    if (overlay) overlay.classList.add('hidden');
+    if (window.gameRenderer) {
+      window.gameRenderer.setInteractive(true);
+    }
+    startTimer();
+    updateGameControls(true);
+    showToast('对手已重连');
+  });
+
   socket.on('moveMade', (data) => {
     if (window.gameRenderer) {
       window.gameRenderer.placeStone(data.row, data.col, data.color);
@@ -226,6 +263,9 @@ function connectSocket() {
   });
 
   socket.on('gameEnd', (data) => {
+    // 隐藏断线弹窗（如果显示着）
+    const dcOverlay = document.getElementById('disconnectOverlay');
+    if (dcOverlay) dcOverlay.classList.add('hidden');
     gameState.status = 'ended';
     window.isMyTurn = false;
     updateGameControls(false);

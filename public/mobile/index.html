@@ -148,6 +148,21 @@
     </div>
   </div>
 
+  <!-- 断线弹窗 -->
+  <div id="disconnectOverlay" class="hidden disconnect-overlay">
+    <div class="disconnect-modal">
+      <div class="disconnect-icon">⚠️</div>
+      <p class="disconnect-message">
+        用户 <strong id="dcNickname"></strong> 已断线，
+        若对方在 <strong id="dcTimer">20</strong> 秒内未回归棋局，
+        那么将判断您为胜利！
+      </p>
+      <div class="disconnect-progress">
+        <div id="dcProgressBar" class="disconnect-progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script src="/socket.io/socket.io.js"></script>

@@ -1755,3 +1755,55 @@ body {
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--wood-light); border-radius: 2px; }
+
+/* ========== 断线弹窗移动端适配 ========== */
+.hidden { display: none !important; }
+
+.disconnect-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.disconnect-modal {
+  background: var(--wood-light);
+  border: 3px solid var(--gold);
+  border-radius: 16px;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 8px 32px var(--shadow-deep);
+  animation: disconnectPulse 0.5s ease-in-out;
+  margin: 20px;
+  padding: 24px 20px;
+}
+.disconnect-icon {
+  font-size: 36px;
+}
+.disconnect-message {
+  font-size: 14px;
+}
+@keyframes disconnectPulse {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.disconnect-progress {
+  width: 100%;
+  height: 6px;
+  background: #ddd;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.disconnect-progress-bar {
+  height: 100%;
+  background: var(--gold, #c9a227);
+  transition: width 0.3s ease;
+  width: 0%;
+}

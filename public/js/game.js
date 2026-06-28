@@ -451,6 +451,11 @@ class GameRenderer {
 
     requestAnimationFrame(() => this.animate());
   }
+
+  setInteractive(enabled) {
+    this.canvas.style.pointerEvents = enabled ? 'auto' : 'none';
+    this.canvas.style.cursor = enabled ? 'crosshair' : 'not-allowed';
+  }
 }
 
 const gameRenderer = new GameRenderer('gameBoard');

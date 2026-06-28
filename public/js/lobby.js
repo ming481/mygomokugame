@@ -132,6 +132,9 @@ async function init() {
   initFortune();
   initInkBackground();
 
+  // 检查是否有进行中的对局（断线重连）
+  checkActiveGame();
+
   // 检查是否从游戏页返回并带有 quick 参数
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('mode') === 'quick') {
@@ -507,6 +510,41 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+async function checkActiveGame() {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch('/api/active-game', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!data.success || !data.hasActiveGame) return;
+
+    const msgEl = document.getElementById('reconnectMessage');
+    const statusEl = document.getElementById('reconnectOpponentStatus');
+    if (msgEl) msgEl.textContent = `您有一场进行中的对局（vs ${data.opponent}）`;
+    if (statusEl) statusEl.textContent = data.isOpponentOnline ? '🟢 对手在线' : '🔴 对手已离线';
+
+    const modal = document.getElementById('reconnectModal');
+    if (modal) modal.classList.add('active');
+
+    document.getElementById('reconnectJoinBtn').onclick = () => {
+      if (modal) modal.classList.remove('active');
+      window.location.href = `/game?room=${data.roomId}`;
+    };
+
+    document.getElementById('reconnectForfeitBtn').onclick = async () => {
+      if (modal) modal.classList.remove('active');
+      await fetch('/api/active-game/forfeit', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      showToast('已放弃对局');
+    };
+  } catch (err) {
+    console.error('检查进行中游戏失败:', err);
+  }
 }
 
 init();

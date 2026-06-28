@@ -404,6 +404,109 @@ app.get('/api/rooms/:roomId', authenticateToken, (req, res) => {
   });
 });
 
+// 查询用户是否有进行中的在线匹配对局（用于断线重连检测）
+app.get('/api/active-game', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+
+    // 先查内存 rooms Map
+    for (const [roomId, room] of rooms.entries()) {
+      if (room.status === 'ended' || room.status === 'waiting') continue;
+      const player = room.players.find(p => p.username === username);
+      if (!player) continue;
+      const opponent = room.players.find(p => p.username !== username);
+      return res.json({
+        success: true,
+        hasActiveGame: true,
+        roomId,
+        opponent: opponent ? (opponent.nickname || opponent.username) : '未知',
+        color: player.color,
+        isOpponentOnline: opponent ? userSockets.has(opponent.username) : false
+      });
+    }
+
+    // 内存中没找到，查 DB
+    const dbGame = await Database.loadActiveGameByUser(username);
+    if (dbGame) {
+      const isBlack = dbGame.player_black === username;
+      const opponentName = isBlack ? dbGame.player_white : dbGame.player_black;
+      const opponentUser = await Database.getUserByUsername(opponentName);
+      return res.json({
+        success: true,
+        hasActiveGame: true,
+        roomId: dbGame.room_id,
+        opponent: opponentUser ? (opponentUser.nickname || opponentName) : opponentName,
+        color: isBlack ? 'black' : 'white',
+        isOpponentOnline: userSockets.has(opponentName)
+      });
+    }
+
+    res.json({ success: true, hasActiveGame: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 用户主动放弃进行中的对局
+app.post('/api/active-game/forfeit', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    let deleted = false;
+
+    // 先查内存
+    for (const [roomId, room] of rooms.entries()) {
+      if (room.status === 'ended' || room.status === 'waiting') continue;
+      const player = room.players.find(p => p.username === username);
+      if (!player) continue;
+
+      room.status = 'ended';
+      const opponent = room.players.find(p => p.username !== username);
+      room.winner = opponent ? opponent.username : null;
+      if (opponent) {
+        Database.updateStats(opponent.username, 'win', 20).catch(console.error);
+        Database.updateStats(username, 'loss', -15).catch(console.error);
+        const black = room.players.find(p => p.color === 'black');
+        const white = room.players.find(p => p.color === 'white');
+        Database.saveGameRecord(roomId,
+          black ? black.username : '',
+          white ? white.username : '',
+          opponent.username, `${username} 放弃对局`, room.moves.length
+        ).catch(console.error);
+        const opponentNickname = opponent.nickname || await resolveNickname(opponent.username);
+        io.to(roomId).emit('gameEnd', {
+          winner: opponent.username,
+          winnerNickname: opponentNickname,
+          color: opponent.color,
+          reason: '对手放弃对局',
+          board: room.board
+        });
+      }
+      if (room.disconnectTimer) clearTimeout(room.disconnectTimer);
+      if (room.countdownInterval) clearInterval(room.countdownInterval);
+      rooms.delete(roomId);
+      await Database.deleteActiveGame(roomId);
+      deleted = true;
+      break;
+    }
+
+    // 不在内存则查 DB
+    if (!deleted) {
+      const dbGame = await Database.loadActiveGameByUser(username);
+      if (dbGame) {
+        const opponentName = dbGame.player_black === username ? dbGame.player_white : dbGame.player_black;
+        Database.updateStats(opponentName, 'win', 20).catch(console.error);
+        Database.updateStats(username, 'loss', -15).catch(console.error);
+        Database.saveGameRecord(dbGame.room_id, dbGame.player_black, dbGame.player_white, opponentName, `${username} 放弃对局`, dbGame.moves.length).catch(console.error);
+        await Database.deleteActiveGame(dbGame.room_id);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 function publicPlayers(room) {
   return room.players.map(p => ({
     username: p.username,
@@ -629,10 +732,37 @@ io.on('connection', (socket) => {
 
   socket.on('joinRoom', async (roomId) => {
     if (!socket.username) return;
-    const room = rooms.get(roomId);
+    let room = rooms.get(roomId);
+
     if (!room) {
-      socket.emit('error', { message: '房间不存在' });
-      return;
+      // 内存中没有，尝试从 DB 恢复
+      const dbGame = await Database.loadActiveGame(roomId);
+      if (!dbGame) {
+        socket.emit('error', { message: '房间不存在' });
+        return;
+      }
+      // 从 DB 恢复 room 到内存
+      const restoredRoom = {
+        id: dbGame.room_id,
+        players: [
+          { username: dbGame.player_black, nickname: '', socketId: '', color: 'black', ready: false, timeLeft: dbGame.black_time_left, disconnectedAt: Date.now() },
+          { username: dbGame.player_white, nickname: '', socketId: '', color: 'white', ready: false, timeLeft: dbGame.white_time_left, disconnectedAt: Date.now() }
+        ],
+        board: dbGame.board_state,
+        currentTurn: dbGame.current_turn,
+        status: 'disconnected',
+        winner: null,
+        moves: dbGame.moves,
+        chat: [],
+        lastMoveTime: dbGame.last_move_time,
+        drawRequest: null,
+        gameStartedAt: dbGame.game_started_at,
+        turnStartedAt: dbGame.turn_started_at,
+        disconnectTimer: null,
+        countdownInterval: null
+      };
+      rooms.set(roomId, restoredRoom);
+      room = restoredRoom;
     }
 
     if (room.players.length >= 2 && !room.players.find(p => p.username === socket.username)) {
@@ -648,6 +778,27 @@ io.on('connection', (socket) => {
       existingPlayer.socketId = socket.id;
       socket.join(roomId);
       socket.currentRoom = roomId;
+
+      // 如果房间处于 disconnected 状态且该玩家之前断线了 → 重连成功
+      if (room.status === 'disconnected' && existingPlayer.disconnectedAt) {
+        if (room.disconnectTimer) {
+          clearTimeout(room.disconnectTimer);
+          room.disconnectTimer = null;
+        }
+        if (room.countdownInterval) {
+          clearInterval(room.countdownInterval);
+          room.countdownInterval = null;
+        }
+        existingPlayer.disconnectedAt = null;
+        room.status = 'playing';
+        await Database.deleteActiveGame(roomId);
+
+        const opponent = room.players.find(p => p.username !== socket.username);
+        if (opponent) {
+          io.to(opponent.socketId).emit('opponentReconnected');
+        }
+      }
+
       socket.emit('joinedRoom', {
         roomId,
         color: existingPlayer.color,
@@ -657,7 +808,6 @@ io.on('connection', (socket) => {
         moves: room.moves
       });
 
-      // 如果房间已经是 playing 状态，发送 gameStart 以确保客户端 UI 初始化
       if (room.status === 'playing') {
         socket.emit('gameStart', {
           roomId,
@@ -945,10 +1095,141 @@ io.on('connection', (socket) => {
       }
       const waitIndex = waitingPlayers.findIndex(p => p.username === socket.username);
       if (waitIndex !== -1) waitingPlayers.splice(waitIndex, 1);
-      if (socket.currentRoom) await handleLeaveRoom(socket, socket.currentRoom);
+      if (socket.currentRoom) await handlePlayerDisconnect(socket.currentRoom, socket.username);
     }
   });
 });
+
+// 处理玩家断线（网络断开/关闭页面）—— 启动 20 秒重连倒计时
+async function handlePlayerDisconnect(roomId, username) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  const player = room.players.find(p => p.username === username);
+  if (!player) return;
+
+  // 非 playing 状态、或者房间已经是 disconnected（双方都已断开），走旧逻辑清理
+  if (room.status !== 'playing') {
+    const playerIndex = room.players.findIndex(p => p.username === username);
+    if (playerIndex !== -1) room.players.splice(playerIndex, 1);
+    if (room.players.length === 0) rooms.delete(roomId);
+    return;
+  }
+
+  // 检查另一个玩家是否也已经 disconnected
+  const otherPlayer = room.players.find(p => p.username !== username);
+  if (otherPlayer && otherPlayer.disconnectedAt) {
+    // 双方都断线了 → 平局
+    room.status = 'ended';
+    const black = room.players.find(p => p.color === 'black');
+    const white = room.players.find(p => p.color === 'white');
+    room.players.forEach(p => Database.updateStats(p.username, 'draw', 0).catch(console.error));
+    Database.saveGameRecord(roomId,
+      black ? black.username : '',
+      white ? white.username : '',
+      null, '双方断线', room.moves.length
+    ).catch(console.error);
+    await Database.deleteActiveGame(roomId);
+    io.to(roomId).emit('gameEnd', {
+      winner: null,
+      reason: '双方均断线，平局',
+      board: room.board
+    });
+    rooms.delete(roomId);
+    return;
+  }
+
+  // 标记当前玩家断线
+  player.disconnectedAt = Date.now();
+  room.status = 'disconnected';
+
+  // 对手还在线
+  const opponent = room.players.find(p => p.username !== username && !p.disconnectedAt);
+  if (!opponent) return; // 没有对手在线，无需继续
+
+  const playerNickname = player.nickname || await resolveNickname(username);
+  io.to(opponent.socketId).emit('opponentDisconnected', {
+    opponentNickname: playerNickname,
+    timeoutSec: 20
+  });
+
+  // 写入 active_games 快照
+  const black = room.players.find(p => p.color === 'black');
+  const white = room.players.find(p => p.color === 'white');
+  await Database.saveActiveGame(roomId, {
+    player_black: black ? black.username : '',
+    player_white: white ? white.username : '',
+    board_state: room.board,
+    moves: room.moves,
+    current_turn: room.currentTurn,
+    black_time_left: Math.ceil(room.players.find(p => p.color === 'black')?.timeLeft || TURN_TIME_SECONDS),
+    white_time_left: Math.ceil(room.players.find(p => p.color === 'white')?.timeLeft || TURN_TIME_SECONDS),
+    game_started_at: room.gameStartedAt || Date.now(),
+    turn_started_at: room.turnStartedAt || Date.now(),
+    last_move_time: room.lastMoveTime
+  });
+
+  // 20 秒倒计时
+  room.disconnectTimer = setTimeout(async () => {
+    const currentRoom = rooms.get(roomId);
+    if (!currentRoom || currentRoom.status !== 'disconnected') return;
+
+    // 倒计时结束时检查对手是否还在线
+    const currentOpponent = currentRoom.players.find(p => p.username !== username && !p.disconnectedAt);
+    if (!currentOpponent) {
+      // 对手也断线了 → 平局
+      currentRoom.status = 'ended';
+      currentRoom.players.forEach(p => Database.updateStats(p.username, 'draw', 0).catch(console.error));
+      Database.saveGameRecord(roomId,
+        black ? black.username : '',
+        white ? white.username : '',
+        null, '双方断线超时', currentRoom.moves.length
+      ).catch(console.error);
+      await Database.deleteActiveGame(roomId);
+      io.to(roomId).emit('gameEnd', {
+        winner: null,
+        reason: '双方均断线，平局',
+        board: currentRoom.board
+      });
+    } else {
+      // 超时未重连 → 对手获胜
+      currentRoom.status = 'ended';
+      currentRoom.winner = currentOpponent.username;
+      Database.updateStats(currentOpponent.username, 'win', 20).catch(console.error);
+      Database.updateStats(username, 'loss', -15).catch(console.error);
+      Database.saveGameRecord(roomId,
+        black ? black.username : '',
+        white ? white.username : '',
+        currentOpponent.username, `${username} 断线超时`, currentRoom.moves.length
+      ).catch(console.error);
+      await Database.deleteActiveGame(roomId);
+      const opponentNickname = currentOpponent.nickname || await resolveNickname(currentOpponent.username);
+      io.to(roomId).emit('gameEnd', {
+        winner: currentOpponent.username,
+        winnerNickname: opponentNickname,
+        color: currentOpponent.color,
+        reason: '对方断线超时',
+        board: currentRoom.board
+      });
+    }
+    rooms.delete(roomId);
+  }, 20000);
+
+  // 每秒发送倒计时 tick
+  room.countdownInterval = setInterval(() => {
+    const r = rooms.get(roomId);
+    if (!r || r.status !== 'disconnected') {
+      if (room.countdownInterval) clearInterval(room.countdownInterval);
+      return;
+    }
+    const remaining = Math.max(0, Math.ceil(20 - (Date.now() - player.disconnectedAt) / 1000));
+    io.to(opponent.socketId).emit('opponentDisconnectCountdown', { remainingSec: remaining });
+    if (remaining <= 0 && room.countdownInterval) {
+      clearInterval(room.countdownInterval);
+      room.countdownInterval = null;
+    }
+  }, 1000);
+}
 
 async function handleLeaveRoom(socket, roomId) {
   const room = rooms.get(roomId);
@@ -1016,8 +1297,9 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 // 初始化数据库后启动
-Database.init().then(() => {
+Database.init().then(async () => {
   console.log('数据库连接成功');
+  await Database.clearActiveGames();
   server.listen(PORT, () => {
     console.log(`五子棋服务器运行在端口 ${PORT}`);
     console.log(`访问 http://localhost:${PORT} 开始游戏`);
