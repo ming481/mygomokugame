@@ -62,6 +62,20 @@ let currentUser = null;
 let createdRoomId = null;
 let unreadReminderShown = false;
 
+// 移动端导航前主动断开 socket，防止 bfcache 导致"已在其他设备登录"误判
+function disconnectBeforeNav() {
+  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
+    if (socket && socket.connected) socket.disconnect();
+  }
+}
+
+// 捕获系统导航栏"返回"按钮/手势（pagehide 在 bfcache 冻结前可靠触发）
+window.addEventListener('pagehide', function () {
+  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
+    if (socket && socket.connected) socket.disconnect();
+  }
+});
+
 const els = {
   userName: document.getElementById('userName'),
   userRating: document.getElementById('userRating'),
@@ -215,6 +229,7 @@ function connectSocket() {
   socket.on('matchFound', (data) => {
     hideMatchingModal();
     showToast(`匹配成功！对手: ${data.opponent}`);
+    disconnectBeforeNav();
     setTimeout(() => {
       window.location.href = `/game?room=${data.roomId}&color=${data.color}`;
     }, 800);
@@ -229,6 +244,7 @@ function connectSocket() {
   });
 
   socket.on('gameStart', (data) => {
+    disconnectBeforeNav();
     window.location.href = `/game?room=${data.roomId}`;
   });
 
@@ -240,6 +256,7 @@ function bindEvents() {
     await fetch('/api/logout', { method: 'POST' });
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    disconnectBeforeNav();
     window.location.href = '/login';
   });
 
@@ -256,21 +273,25 @@ function bindEvents() {
   // 人机对弈按钮
   if (els.aiBeginnerBtn) {
     els.aiBeginnerBtn.addEventListener('click', () => {
+      disconnectBeforeNav();
       window.location.href = '/ai-game?difficulty=beginner';
     });
   }
   if (els.aiIntermediateBtn) {
     els.aiIntermediateBtn.addEventListener('click', () => {
+      disconnectBeforeNav();
       window.location.href = '/ai-game?difficulty=intermediate';
     });
   }
   if (els.aiAdvancedBtn) {
     els.aiAdvancedBtn.addEventListener('click', () => {
+      disconnectBeforeNav();
       window.location.href = '/ai-game?difficulty=advanced';
     });
   }
 
   els.friendsBtn.addEventListener('click', () => {
+    disconnectBeforeNav();
     window.location.href = '/friends';
   });
 
@@ -288,6 +309,7 @@ function bindEvents() {
   els.enterRoomBtn.addEventListener('click', () => {
     els.roomCreatedModal.classList.remove('active');
     if (createdRoomId) {
+      disconnectBeforeNav();
       window.location.href = `/game?room=${createdRoomId}`;
     }
   });
@@ -313,6 +335,7 @@ async function joinRoomById() {
     if ((data.room?.playersCount || 0) >= 2) {
       throw new Error('房间已满，无法加入');
     }
+    disconnectBeforeNav();
     window.location.href = `/game?room=${roomId}`;
   } catch (err) {
     showToast(err.message || '房间不存在');
@@ -555,6 +578,7 @@ async function checkActiveGame() {
         // 验证失败，仍然尝试进入
       }
       if (modal) modal.classList.remove('active');
+      disconnectBeforeNav();
       window.location.href = `/game?room=${data.roomId}`;
     };
 

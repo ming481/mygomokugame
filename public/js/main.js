@@ -6,6 +6,20 @@ let gameState = null;
 let unreadReminderShown = false;
 const TURN_TIME_SECONDS = 600;
 
+// 移动端导航前主动断开 socket，防止 bfcache 导致"已在其他设备登录"误判
+function disconnectBeforeNav() {
+  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
+    if (window.socket && window.socket.connected) window.socket.disconnect();
+  }
+}
+
+// 捕获系统导航栏"返回"按钮/手势（pagehide 在 bfcache 冻结前可靠触发）
+window.addEventListener('pagehide', function () {
+  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
+    if (window.socket && window.socket.connected) window.socket.disconnect();
+  }
+});
+
 // 必须挂载到 window，供 game.js 访问
 window.isMyTurn = false;
 window.myColor = null;
@@ -84,7 +98,10 @@ async function init() {
   } else if (!roomId) {
     // 没有房间信息，也不在匹配模式，返回大厅
     showToast('未指定房间，返回大厅...');
-    setTimeout(() => window.location.href = '/lobby', 1500);
+    setTimeout(() => {
+      disconnectBeforeNav();
+      window.location.href = '/lobby';
+    }, 1500);
   }
 }
 
@@ -316,6 +333,7 @@ function connectSocket() {
     window.myColor = null;
     window.isMyTurn = false;
     showToast('已离开房间');
+    disconnectBeforeNav();
     setTimeout(() => window.location.href = '/lobby', 1000);
   });
 }
@@ -372,6 +390,7 @@ function bindEvents() {
     await fetch('/api/logout', { method: 'POST' });
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    disconnectBeforeNav();
     window.location.href = '/login';
   });
 
@@ -381,6 +400,7 @@ function bindEvents() {
         () => window.socket.emit('leaveRoom', { roomId: window.currentRoom })
       );
     } else {
+      disconnectBeforeNav();
       window.location.href = '/lobby';
     }
   });
@@ -407,11 +427,13 @@ function bindEvents() {
 
   els.playAgainBtn.addEventListener('click', () => {
     hideGameEndModal();
+    disconnectBeforeNav();
     window.location.href = '/lobby?mode=quick';
   });
 
   els.backToLobbyBtn.addEventListener('click', () => {
     hideGameEndModal();
+    disconnectBeforeNav();
     window.location.href = '/lobby';
   });
 

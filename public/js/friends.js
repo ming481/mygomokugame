@@ -31,6 +31,20 @@ const els = {
   toast: document.getElementById('toast')
 };
 
+// 移动端导航前主动断开 socket，防止 bfcache 导致"已在其他设备登录"误判
+function disconnectBeforeNav() {
+  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
+    if (socket && socket.connected) socket.disconnect();
+  }
+}
+
+// 捕获系统导航栏"返回"按钮/手势（pagehide 在 bfcache 冻结前可靠触发）
+window.addEventListener('pagehide', function () {
+  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
+    if (socket && socket.connected) socket.disconnect();
+  }
+});
+
 async function init() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -66,6 +80,7 @@ function updateUserUI() {
 
 function bindEvents() {
   els.backBtn.addEventListener('click', () => {
+    disconnectBeforeNav();
     window.location.href = '/lobby';
   });
 
@@ -73,6 +88,7 @@ function bindEvents() {
     await fetch('/api/logout', { method: 'POST' });
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    disconnectBeforeNav();
     window.location.href = '/login';
   });
 
