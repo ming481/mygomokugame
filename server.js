@@ -180,8 +180,16 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     const user = await Database.validateUser(username, password);
 
-    // 检查该账号是否当前在线（有活跃的 socket 连接）
-    if (userSockets.has(user.username)) {
+    // 检查该账号是否有活跃的 socket 连接（先验证连接是否真实存在）
+    const userHasActiveSocket = (() => {
+      const sid = userSockets.get(user.username);
+      if (!sid) return false;
+      const sock = io.sockets.sockets.get(sid);
+      if (sock && sock.connected) return true;
+      userSockets.delete(user.username); // 清理过期记录
+      return false;
+    })();
+    if (userHasActiveSocket) {
       return res.status(409).json({ error: '该账号已在其他设备登录' });
     }
 
@@ -202,6 +210,15 @@ app.get('/api/me', authenticateToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// 为 login 页设置 cookie（解决 localStorage token 有但 cookie 缺失时的重定向循环）
+app.post('/api/set-cookie', authenticateToken, (req, res) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (token) {
+    res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+  }
+  res.json({ success: true });
 });
 
 // 登出
@@ -668,6 +685,18 @@ io.on('connection', (socket) => {
         socket.emit('authenticated', { success: false, error: 'token_invalidated' });
         return;
       }
+      // 先来先到：如果已有活跃 socket，拒绝新连接
+      const existingId = userSockets.get(decoded.username);
+      if (existingId) {
+        const existingSocket = io.sockets.sockets.get(existingId);
+        if (existingSocket && existingSocket.connected) {
+          socket.emit('authenticated', { success: false, error: '该账号已在其他设备或标签页登录' });
+          return;
+        }
+        // 旧的 socket 已断开但未清理，允许新连接
+        userSockets.delete(decoded.username);
+      }
+
       socket.username = decoded.username;
       userSockets.set(decoded.username, socket.id);
       socket.emit('authenticated', { success: true, username: decoded.username });

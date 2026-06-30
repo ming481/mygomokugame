@@ -64,9 +64,6 @@ function initInkBackground() {
   animate();
 }
 
-// 检查是否已登录
-checkAuth();
-
 // 标签切换
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -159,8 +156,19 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
 
 // 认证检查
 async function checkAuth() {
+  const loadingEl = document.getElementById('authLoading');
+  const container = document.querySelector('.auth-container');
+
+  function showForm() {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (container) container.style.display = 'block';
+  }
+
   const token = localStorage.getItem('token');
-  if (!token) return;
+  if (!token) {
+    showForm();
+    return;
+  }
 
   try {
     const res = await fetch('/api/me', {
@@ -169,10 +177,15 @@ async function checkAuth() {
 
     const data = await res.json();
     if (res.ok && data.success && data.user && data.user.username) {
-      // 已登录且用户信息有效，跳转到主页
       localStorage.setItem('user', JSON.stringify(data.user));
       if (window.location.pathname === '/login' || window.location.pathname === '/') {
+        // 先确保 cookie 设置好再跳转，避免重定向循环
+        await fetch('/api/set-cookie', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => {});
         window.location.replace('/lobby');
+        return;
       }
     } else {
       // Token无效或用户不存在
@@ -184,6 +197,8 @@ async function checkAuth() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   }
+
+  showForm();
 }
 
 // 修复 iOS 输入框焦点切换时键盘遮挡问题
@@ -210,6 +225,7 @@ async function checkAuth() {
 })();
 
 // 初始化
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initInkBackground();
+  await checkAuth();
 });
