@@ -26,6 +26,13 @@ window.addEventListener('pagehide', function () {
   }
 });
 
+// 从 bfcache 恢复时重连 socket（系统返回按钮回到本页时）
+window.addEventListener('pageshow', function (event) {
+  if (event.persisted && window.socket && !window.socket.connected) {
+    connectSocket();
+  }
+});
+
 // 必须挂载到 window，供 game.js 访问
 window.isMyTurn = false;
 window.myColor = null;

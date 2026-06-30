@@ -34,6 +34,13 @@ window.addEventListener('pagehide', function () {
   }
 });
 
+// 从 bfcache 恢复时重连 socket（系统返回按钮回到本页时）
+window.addEventListener('pageshow', function (event) {
+  if (event.persisted && socket && !socket.connected) {
+    connectSocket();
+  }
+});
+
 // ---------- AI Worker ----------
 let aiWorker = null;
 let workerReady = false;
