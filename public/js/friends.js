@@ -34,7 +34,10 @@ const els = {
 // 移动端导航前主动断开 socket，防止 bfcache 导致"已在其他设备登录"误判
 function disconnectBeforeNav() {
   if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
-    if (socket && socket.connected) socket.disconnect();
+    if (socket && socket.connected) {
+      window._pagehideDisconnect = true;
+      socket.disconnect();
+    }
   }
 }
 
