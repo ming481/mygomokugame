@@ -72,7 +72,10 @@ function disconnectBeforeNav() {
 // 捕获系统导航栏"返回"按钮/手势（pagehide 在 bfcache 冻结前可靠触发）
 window.addEventListener('pagehide', function () {
   if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
-    if (socket && socket.connected) socket.disconnect();
+    if (socket && socket.connected) {
+      window._pagehideDisconnect = true;
+      socket.disconnect();
+    }
   }
 });
 
@@ -216,7 +219,10 @@ function connectSocket() {
     remindUnreadPrivateMessages();
   });
 
-  socket.on('disconnect', () => showToast('连接已断开'));
+  socket.on('disconnect', () => {
+    if (window._pagehideDisconnect) { window._pagehideDisconnect = false; return; }
+    showToast('连接已断开');
+  });
 
   socket.on('privateMessage', (message) => {
     if (!currentUser || message.sender === currentUser.username) return;
