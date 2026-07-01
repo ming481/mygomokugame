@@ -6,26 +6,6 @@ let gameState = null;
 let unreadReminderShown = false;
 const TURN_TIME_SECONDS = 600;
 
-// 移动端导航前主动断开 socket，防止 bfcache 导致"已在其他设备登录"误判
-function disconnectBeforeNav() {
-  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
-    if (window.socket && window.socket.connected) {
-      window._pagehideDisconnect = true;
-      window.socket.disconnect();
-    }
-  }
-}
-
-// 捕获系统导航栏"返回"按钮/手势（pagehide 在 bfcache 冻结前可靠触发）
-window.addEventListener('pagehide', function () {
-  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
-    if (window.socket && window.socket.connected) {
-      window._pagehideDisconnect = true;
-      window.socket.disconnect();
-    }
-  }
-});
-
 // 从 bfcache 恢复时重连 socket（系统返回按钮回到本页时）
 window.addEventListener('pageshow', function (event) {
   if (event.persisted && window.socket && !window.socket.connected) {
@@ -112,8 +92,7 @@ async function init() {
     // 没有房间信息，也不在匹配模式，返回大厅
     showToast('未指定房间，返回大厅...');
     setTimeout(() => {
-      disconnectBeforeNav();
-      window.location.href = '/lobby';
+        window.location.href = '/lobby';
     }, 1500);
   }
 }
@@ -138,16 +117,6 @@ function connectSocket() {
 
   socket.on('authenticated', (data) => {
     if (!data.success) {
-      if (data.error && (data.error.includes('已在其他') || data.error.includes('已登录'))) {
-        document.body.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:serif;background:linear-gradient(135deg,#f5f0e8,#e8e0d0);color:#5D4037;">
-            <div style="text-align:center;padding:40px;">
-              <h2 style="margin:0;font-size:22px;">${escapeHtml(data.error)}</h2>
-              <p style="margin-top:16px;color:#8D6E63;font-size:14px;">请关闭此页面，使用原有标签页继续游戏</p>
-            </div>
-          </div>`;
-        return;
-      }
       showToast('连接失败，请重新登录');
       setTimeout(() => { localStorage.removeItem('token'); window.location.href = '/login'; }, 2000);
       return;
@@ -164,7 +133,6 @@ function connectSocket() {
   });
 
   socket.on('disconnect', () => {
-    if (window._pagehideDisconnect) { window._pagehideDisconnect = false; return; }
     showToast('连接已断开，正在重连...');
   });
 
@@ -349,7 +317,6 @@ function connectSocket() {
     window.myColor = null;
     window.isMyTurn = false;
     showToast('已离开房间');
-    disconnectBeforeNav();
     setTimeout(() => window.location.href = '/lobby', 1000);
   });
 }
@@ -406,7 +373,6 @@ function bindEvents() {
     await fetch('/api/logout', { method: 'POST' });
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    disconnectBeforeNav();
     window.location.href = '/login';
   });
 
@@ -416,8 +382,7 @@ function bindEvents() {
         () => window.socket.emit('leaveRoom', { roomId: window.currentRoom })
       );
     } else {
-      disconnectBeforeNav();
-      window.location.href = '/lobby';
+        window.location.href = '/lobby';
     }
   });
 
@@ -443,13 +408,11 @@ function bindEvents() {
 
   els.playAgainBtn.addEventListener('click', () => {
     hideGameEndModal();
-    disconnectBeforeNav();
     window.location.href = '/lobby?mode=quick';
   });
 
   els.backToLobbyBtn.addEventListener('click', () => {
     hideGameEndModal();
-    disconnectBeforeNav();
     window.location.href = '/lobby';
   });
 

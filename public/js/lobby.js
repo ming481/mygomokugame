@@ -62,26 +62,6 @@ let currentUser = null;
 let createdRoomId = null;
 let unreadReminderShown = false;
 
-// 移动端导航前主动断开 socket，防止 bfcache 导致"已在其他设备登录"误判
-function disconnectBeforeNav() {
-  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
-    if (socket && socket.connected) {
-      window._pagehideDisconnect = true;
-      socket.disconnect();
-    }
-  }
-}
-
-// 捕获系统导航栏"返回"按钮/手势（pagehide 在 bfcache 冻结前可靠触发）
-window.addEventListener('pagehide', function () {
-  if (/mobile|android|iphone|ipod|webos|blackberry|windows phone|opera mini|iemobile/i.test(navigator.userAgent)) {
-    if (socket && socket.connected) {
-      window._pagehideDisconnect = true;
-      socket.disconnect();
-    }
-  }
-});
-
 // 从 bfcache 恢复时重连 socket（系统返回按钮回到本页时）
 window.addEventListener('pageshow', function (event) {
   if (event.persisted && socket && !socket.connected) {
@@ -212,16 +192,6 @@ function connectSocket() {
 
   socket.on('authenticated', (data) => {
     if (!data.success) {
-      if (data.error && (data.error.includes('已在其他') || data.error.includes('已登录'))) {
-        document.body.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:serif;background:linear-gradient(135deg,#f5f0e8,#e8e0d0);color:#5D4037;">
-            <div style="text-align:center;padding:40px;">
-              <h2 style="margin:0;font-size:22px;">${escapeHtml(data.error)}</h2>
-              <p style="margin-top:16px;color:#8D6E63;font-size:14px;">请关闭此页面，使用原有标签页继续游戏</p>
-            </div>
-          </div>`;
-        return;
-      }
       showToast('连接失败，请重新登录');
       setTimeout(() => { localStorage.removeItem('token'); window.location.href = '/login'; }, 2000);
       return;
@@ -230,7 +200,6 @@ function connectSocket() {
   });
 
   socket.on('disconnect', () => {
-    if (window._pagehideDisconnect) { window._pagehideDisconnect = false; return; }
     showToast('连接已断开');
   });
 
@@ -245,7 +214,6 @@ function connectSocket() {
   socket.on('matchFound', (data) => {
     hideMatchingModal();
     showToast(`匹配成功！对手: ${data.opponent}`);
-    disconnectBeforeNav();
     setTimeout(() => {
       window.location.href = `/game?room=${data.roomId}&color=${data.color}`;
     }, 800);
@@ -260,7 +228,6 @@ function connectSocket() {
   });
 
   socket.on('gameStart', (data) => {
-    disconnectBeforeNav();
     window.location.href = `/game?room=${data.roomId}`;
   });
 
@@ -272,7 +239,6 @@ function bindEvents() {
     await fetch('/api/logout', { method: 'POST' });
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    disconnectBeforeNav();
     window.location.href = '/login';
   });
 
@@ -289,25 +255,21 @@ function bindEvents() {
   // 人机对弈按钮
   if (els.aiBeginnerBtn) {
     els.aiBeginnerBtn.addEventListener('click', () => {
-      disconnectBeforeNav();
-      window.location.href = '/ai-game?difficulty=beginner';
+        window.location.href = '/ai-game?difficulty=beginner';
     });
   }
   if (els.aiIntermediateBtn) {
     els.aiIntermediateBtn.addEventListener('click', () => {
-      disconnectBeforeNav();
-      window.location.href = '/ai-game?difficulty=intermediate';
+        window.location.href = '/ai-game?difficulty=intermediate';
     });
   }
   if (els.aiAdvancedBtn) {
     els.aiAdvancedBtn.addEventListener('click', () => {
-      disconnectBeforeNav();
-      window.location.href = '/ai-game?difficulty=advanced';
+        window.location.href = '/ai-game?difficulty=advanced';
     });
   }
 
   els.friendsBtn.addEventListener('click', () => {
-    disconnectBeforeNav();
     window.location.href = '/friends';
   });
 
@@ -325,8 +287,7 @@ function bindEvents() {
   els.enterRoomBtn.addEventListener('click', () => {
     els.roomCreatedModal.classList.remove('active');
     if (createdRoomId) {
-      disconnectBeforeNav();
-      window.location.href = `/game?room=${createdRoomId}`;
+        window.location.href = `/game?room=${createdRoomId}`;
     }
   });
 
@@ -351,7 +312,6 @@ async function joinRoomById() {
     if ((data.room?.playersCount || 0) >= 2) {
       throw new Error('房间已满，无法加入');
     }
-    disconnectBeforeNav();
     window.location.href = `/game?room=${roomId}`;
   } catch (err) {
     showToast(err.message || '房间不存在');
@@ -594,8 +554,7 @@ async function checkActiveGame() {
         // 验证失败，仍然尝试进入
       }
       if (modal) modal.classList.remove('active');
-      disconnectBeforeNav();
-      window.location.href = `/game?room=${data.roomId}`;
+        window.location.href = `/game?room=${data.roomId}`;
     };
 
     document.getElementById('reconnectForfeitBtn').onclick = async () => {

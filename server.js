@@ -691,25 +691,6 @@ io.on('connection', (socket) => {
         socket.emit('authenticated', { success: false, error: 'token_invalidated' });
         return;
       }
-      const existingId = userSockets.get(decoded.username);
-      if (existingId) {
-        const existingSocket = io.sockets.sockets.get(existingId);
-        if (existingSocket && existingSocket.connected) {
-          // token 已验证为最新 + UA 相同 → 同一设备同一浏览器的新标签页，踢旧换新
-          if (socket.handshake.headers['user-agent'] === existingSocket.handshake.headers['user-agent']) {
-            existingSocket.emit('authenticated', { success: false, error: '新标签页已登录，此页面已失效' });
-            existingSocket.disconnect(true);
-            userSockets.delete(decoded.username);
-          } else {
-            socket.emit('authenticated', { success: false, error: '该账号已在其他设备登录' });
-            return;
-          }
-        } else {
-          // 旧的 socket 已断开但未清理，允许新连接
-          userSockets.delete(decoded.username);
-        }
-      }
-
       socket.username = decoded.username;
       userSockets.set(decoded.username, socket.id);
       socket.emit('authenticated', { success: true, username: decoded.username });
