@@ -138,11 +138,11 @@ function connectSocket() {
 
   socket.on('authenticated', (data) => {
     if (!data.success) {
-      if (data.error && data.error.includes('已在其他')) {
+      if (data.error && (data.error.includes('已在其他') || data.error.includes('已登录'))) {
         document.body.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:serif;background:linear-gradient(135deg,#f5f0e8,#e8e0d0);color:#5D4037;">
             <div style="text-align:center;padding:40px;">
-              <h2 style="margin:0;font-size:22px;">该账号已在其他设备或标签页登录</h2>
+              <h2 style="margin:0;font-size:22px;">${escapeHtml(data.error)}</h2>
               <p style="margin-top:16px;color:#8D6E63;font-size:14px;">请关闭此页面，使用原有标签页继续游戏</p>
             </div>
           </div>`;

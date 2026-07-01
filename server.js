@@ -185,7 +185,13 @@ app.post('/api/login', async (req, res) => {
       const sid = userSockets.get(user.username);
       if (!sid) return false;
       const sock = io.sockets.sockets.get(sid);
-      if (sock && sock.connected) return true;
+      if (sock && sock.connected) {
+        // token 已验证为最新 + UA 相同 → 同一设备同一浏览器，允许多标签页账密登录
+        if (sock.handshake.headers['user-agent'] === req.headers['user-agent']) {
+          return false;
+        }
+        return true;
+      }
       userSockets.delete(user.username); // 清理过期记录
       return false;
     })();
@@ -685,16 +691,23 @@ io.on('connection', (socket) => {
         socket.emit('authenticated', { success: false, error: 'token_invalidated' });
         return;
       }
-      // 先来先到：如果已有活跃 socket，拒绝新连接
       const existingId = userSockets.get(decoded.username);
       if (existingId) {
         const existingSocket = io.sockets.sockets.get(existingId);
         if (existingSocket && existingSocket.connected) {
-          socket.emit('authenticated', { success: false, error: '该账号已在其他设备或标签页登录' });
-          return;
+          // token 已验证为最新 + UA 相同 → 同一设备同一浏览器的新标签页，踢旧换新
+          if (socket.handshake.headers['user-agent'] === existingSocket.handshake.headers['user-agent']) {
+            existingSocket.emit('authenticated', { success: false, error: '新标签页已登录，此页面已失效' });
+            existingSocket.disconnect(true);
+            userSockets.delete(decoded.username);
+          } else {
+            socket.emit('authenticated', { success: false, error: '该账号已在其他设备登录' });
+            return;
+          }
+        } else {
+          // 旧的 socket 已断开但未清理，允许新连接
+          userSockets.delete(decoded.username);
         }
-        // 旧的 socket 已断开但未清理，允许新连接
-        userSockets.delete(decoded.username);
       }
 
       socket.username = decoded.username;
